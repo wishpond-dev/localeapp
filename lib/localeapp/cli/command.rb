@@ -26,7 +26,7 @@ module Localeapp
       def load_config_file
         Localeapp.default_config_file_paths.each do |path|
           next unless File.exists? path
-          require path
+          load path
         end
       end
     end
