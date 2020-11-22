@@ -13,31 +13,26 @@ module Localeapp
     attr_accessor :updated_at
 
     def initialize
-      @polled_at  = synchronization_data[:polled_at]
-      @updated_at = synchronization_data[:updated_at]
+      @sync_file  = SyncFile.new( Localeapp.configuration.synchronization_data_file )
+      @polled_at  = sync_data.polled_at
+      @updated_at = sync_data.updated_at
     end
 
-    def synchronization_data
-      if File.exists?(Localeapp.configuration.synchronization_data_file)
-        Localeapp.load_yaml_file(Localeapp.configuration.synchronization_data_file) ||
-        default_synchronization_data
-      else
-        default_synchronization_data
-      end
+    def sync_data
+      sync_file.refresh
+      sync_file.data
     end
 
     def write_synchronization_data!(polled_at, updated_at)
-      File.open(Localeapp.configuration.synchronization_data_file, 'w+') do |f|
-        f.write({:polled_at => polled_at.to_i, :updated_at => updated_at.to_i}.to_yaml)
-      end
+      sync_file.write(polled_at, updated_at)
     end
 
     def needs_polling?
-      synchronization_data[:polled_at] < (Time.now.to_i - Localeapp.configuration.poll_interval)
+      sync_data.polled_at < (Time.now.to_i - Localeapp.configuration.poll_interval)
     end
 
     def needs_reloading?
-      synchronization_data[:updated_at] != @updated_at
+      sync_data.updated_at != @updated_at
     end
 
     def poll!
@@ -57,21 +52,24 @@ module Localeapp
     end
 
     def handle_failure(response)
-      if response.code == 304
+      case response.code
+      when 304
         Localeapp.log_with_time "No new data"
         # Nothing new, update synchronization files
         write_synchronization_data!(current_time, updated_at)
+      when 404
+        fail APIResponseError, "API returned #{response.code} status code"
       end
       @success = false
     end
 
-    private
+  private
+
+    # a SyncFile object representing the synchronization file
+    attr_reader :sync_file
+
     def current_time
       Time.now
-    end
-
-    def default_synchronization_data
-      {:polled_at => 0, :updated_at => 0}
     end
   end
 end

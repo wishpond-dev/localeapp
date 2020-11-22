@@ -2,12 +2,17 @@ module Localeapp
   module Rails
     module Controller
       def self.included(base)
-        base.before_filter :handle_translation_updates
-        base.after_filter  :send_missing_translations
+        if base.respond_to? :before_action
+          base.before_action :handle_translation_updates
+          base.after_action :send_missing_translations
+        else
+          base.before_filter :handle_translation_updates
+          base.after_filter  :send_missing_translations
+        end
       end
 
       def handle_translation_updates
-        raise Localeapp::MissingApiKey unless ::Localeapp.configuration.api_key
+        raise Localeapp::MissingApiKey unless ::Localeapp.configuration.has_api_key?
         unless ::Localeapp.configuration.polling_disabled?
           ::Localeapp.log_with_time 'Handling translation updates'
           if ::Localeapp.poller.needs_polling?
@@ -20,14 +25,14 @@ module Localeapp
           if ::Localeapp.poller.needs_reloading?
             ::Localeapp.log_with_time 'reloading I18n'
             I18n.reload!
-            ::Localeapp.poller.updated_at = ::Localeapp.poller.synchronization_data[:updated_at]
+            ::Localeapp.poller.updated_at = ::Localeapp.poller.sync_data.updated_at
           end
         end
       end
 
       def send_missing_translations
         return if ::Localeapp.configuration.sending_disabled?
-
+        ::Localeapp.missing_translations.reject_blacklisted
         ::Localeapp.sender.post_missing_translations
       end
     end

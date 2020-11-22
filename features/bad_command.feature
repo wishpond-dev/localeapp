@@ -1,7 +1,8 @@
-Feature: localeapp executable
-  Scenario: Running a command that doesn't exist
-    In order to warn of a bad command
+Feature: Unknown command
+
+  Scenario: Reports an error when given unknown command
     When I run `localeapp foo`
+    Then the exit status must be 64
     Then the output should contain:
     """
     error: Unknown command 'foo'

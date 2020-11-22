@@ -12,13 +12,13 @@ describe Localeapp::CLI::Add, "#execute(current_name, new_name, *rest)" do
 
   it "makes the api call to the translations endpoint with the new name as the post body" do
     with_configuration do
-      @command.should_receive(:api_call).with(
+      expect(@command).to receive(:api_call).with(
         :rename,
         :url_options => { :current_name => 'test.key' },
         :payload => { :new_name => 'test.new_name' },
         :success => :report_success,
         :failure => :report_failure,
-        :max_connection_attempts => 3
+        :max_connection_attempts => anything
       )
       do_action
     end

@@ -1,26 +1,6 @@
-# AUDIT: Find a better way of doing this
-begin
-  require 'i18n'
-rescue LoadError
-  # we're in 2.3 and we need to load rails to get the vendored i18n
-  require 'thread' # for rubygems > 1.6.0 support
-  require 'active_support'
-  # This ugliness so we can load AS in the travis env
-  @loaded_active_support = true
-end
-
-begin
-  require 'i18n/core_ext/hash'
-rescue LoadError
-  # This ugliness so we can load AS in the travis env
-  # Assume that we're in rails 2.3 and AS supplies deep_merge
-  # Load AS if we need to
-  unless @loaded_active_support
-    # we're in 2.3 and we need to load rails to get the vendored i18n
-    require 'thread' # for rubygems > 1.6.0 support
-    require 'active_support'
-  end
-end
+require 'i18n'
+require 'i18n/core_ext/hash'
+require 'yaml'
 
 require 'localeapp/i18n_shim'
 require 'localeapp/version'
@@ -29,6 +9,7 @@ require 'localeapp/routes'
 require 'localeapp/api_call'
 require 'localeapp/api_caller'
 require 'localeapp/sender'
+require 'localeapp/sync_file'
 require 'localeapp/poller'
 require 'localeapp/updater'
 require 'localeapp/key_checker'
@@ -43,20 +24,19 @@ require 'localeapp/cli/update'
 require 'localeapp/cli/add'
 require 'localeapp/cli/remove'
 require 'localeapp/cli/rename'
+require 'localeapp/cli/copy'
 require 'localeapp/cli/daemon'
-
-# AUDIT: Will this work on ruby 1.9.x
-$KCODE="UTF8" if RUBY_VERSION < '1.9'
-
-require 'ya2yaml'
 
 module Localeapp
   API_VERSION = "1"
   LOG_PREFIX = "** [Localeapp] "
+  ENV_FILE_PATH = ".env".freeze
 
   class LocaleappError < StandardError; end
   class PotentiallyInsecureYaml < LocaleappError; end
   class MissingApiKey < LocaleappError; end
+  class RuntimeError < LocaleappError; end
+  class APIResponseError < RuntimeError; end
 
   class << self
     # An Localeapp configuration object.
@@ -108,7 +88,7 @@ module Localeapp
     end
 
     def has_config_file?
-      default_config_file_paths.any? { |path| File.exists?(path) }
+      default_config_file_paths.any? { |path| File.exist?(path) }
     end
 
     def default_config_file_paths
@@ -123,15 +103,24 @@ module Localeapp
         raise Localeapp::PotentiallyInsecureYaml if contents =~ /!ruby\//
       end
 
-      if defined?(Psych) && defined?(Psych::VERSION)
-        Psych.load(contents)
-      else
-        normalize_results(YAML.load(contents))
-      end
+      YAML.load(contents)
     end
 
     def load_yaml_file(filename)
       load_yaml(File.read(filename))
+    end
+
+    def yaml_data(content, locale_key = nil)
+      yaml_data = Localeapp.load_yaml(content)
+      if locale_key
+        raise "Could not find given locale" unless yaml_data and yaml_data[locale_key]
+        yaml_data = {locale_key => yaml_data[locale_key]}
+      end
+      yaml_data
+    end
+
+    def env_file_path
+      ENV_FILE_PATH
     end
 
     private
@@ -142,22 +131,6 @@ module Localeapp
         return true if results.is_a?(YAML::Yecht::PrivateType) && results.type_id == 'null'
       end
       false
-    end
-
-    def normalize_results(results)
-      if private_null_type(results)
-        nil
-      elsif results.is_a?(Array)
-        results.each_with_index do |value, i|
-          results[i] = normalize_results(value)
-        end
-      elsif results.is_a?(Hash)
-        results.each_pair do |key, value|
-          results[key] = normalize_results(value)
-        end
-      else
-        results
-      end
     end
   end
 end

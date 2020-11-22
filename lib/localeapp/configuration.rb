@@ -22,6 +22,9 @@ module Localeapp
     # Path to local CA certs bundle
     attr_accessor :ssl_ca_file
 
+    # SSL version to use in requests (defaults to 'SSLv23')
+    attr_accessor :ssl_version
+
     # The port to connect to if it's not the default one
     attr_accessor :port
 
@@ -35,7 +38,7 @@ module Localeapp
     # RAILS_ROOT
     attr_accessor :project_root
 
-    # The names of environments where notifications are sent
+    # The names of environments where missing translations are sent from
     # (defaults to 'development')
     attr_accessor :sending_environments
 
@@ -43,7 +46,9 @@ module Localeapp
     # (defaults to 'development')
     attr_accessor :reloading_environments
 
-    # The names of environments where updates aren't pulled
+    # The names of environments where localeapp will poll for translations from
+    # Localeapp API (to check for new translations there) on every page request
+    # to your app's website.
     # (defaults to 'development')
     attr_accessor :polling_environments
 
@@ -77,6 +82,12 @@ module Localeapp
     # Enable or disable the missing translation cache
     # default: false
     attr_accessor :cache_missing_translations
+    
+    # A regular expression that is matched against a translation key.
+    # If the key matches, the translation will not be sent to the Locale
+    # server via the rails exception handler.
+    # default: nil
+    attr_accessor :blacklisted_keys_pattern
 
     def initialize
       defaults.each do |setting, value|
@@ -90,6 +101,7 @@ module Localeapp
         :timeout                    => 60,
         :secure                     => true,
         :ssl_verify                 => false,
+        :ssl_version                => 'SSLv23',
         :sending_environments       => %w(development),
         :reloading_environments     => %w(development),
         :polling_environments       => %w(development),
@@ -118,5 +130,10 @@ module Localeapp
     def sending_disabled?
       !sending_environments.map { |v| v.to_s }.include?(environment_name)
     end
+
+    def has_api_key?
+      !api_key.nil? && !api_key.empty?
+    end
+
   end
 end

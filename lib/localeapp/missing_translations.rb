@@ -1,8 +1,18 @@
+require 'set'
+
 module Localeapp
-  MissingTranslationRecord = Struct.new(:key, :locale, :description, :options)
+  MissingTranslationRecord = Struct.new(:key, :locale, :description, :options) do
+    def blacklisted?
+      key_path.match(Localeapp.configuration.blacklisted_keys_pattern)
+    end
+
+    def key_path
+      [options[:scope], key].compact.join('.')
+    end
+  end
 
   class MissingTranslations
-    @cached_keys = []
+    @cached_keys = Set.new
 
     class << self
       attr_accessor :cached_keys
@@ -37,6 +47,13 @@ module Localeapp
         end
       end
       data
+    end
+
+    def reject_blacklisted
+      return unless Localeapp.configuration.blacklisted_keys_pattern
+      @translations.each do |locale, records|
+        records.reject! { |key, record| record.blacklisted? }
+      end
     end
 
     private

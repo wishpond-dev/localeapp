@@ -24,20 +24,24 @@ module Localeapp
             :payload => { :file => file },
             :success => :report_success,
             :failure => :report_failure,
-            :max_connection_attempts => 3
+            :max_connection_attempts => 1
         else
           @output.puts "Could not load file"
         end
       end
 
       def report_success(response)
-        @output.puts "Success!"
-        @output.puts ""
-        @output.puts "#{@file_path} queued for processing."
+        id = JSON.parse(response.body)["id"]
+        @output.puts <<-eoh
+Success!
+
+#{@file_path} queued for processing. (id: #{id})
+        eoh
       end
 
       def report_failure(response)
         @output.puts "Failed!"
+        fail APIResponseError, "API returned #{response.code} status code"
       end
 
       private

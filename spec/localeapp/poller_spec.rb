@@ -16,33 +16,11 @@ describe Localeapp::Poller do
   describe "#needs_reloading?" do
     it "returns true when updated_at has been changed in the synchronization file" do
       @poller.write_synchronization_data!(@poller.polled_at, 12345)
-      @poller.needs_reloading?.should be_true
+      expect(@poller.needs_reloading?).to be true
     end
 
     it "returns false when updated_at is the same as in the synchronization file" do
-      @poller.needs_reloading?.should be_false
-    end
-  end
-
-  describe "#synchronization_data" do
-    let(:default_data) { {:polled_at => 0, :updated_at => 0} }
-
-    before do
-      @original_configuration_file = Localeapp.configuration.synchronization_data_file
-    end
-
-    it "returns default data if there is a yml file that is empty" do
-      Localeapp.configuration.synchronization_data_file = "#{File.dirname(__FILE__)}/../fixtures/empty_log.yml"
-      @poller.synchronization_data.should == default_data
-    end
-
-    it "returns default data when the yml file doesn't exist" do
-      Localeapp.configuration.synchronization_data_file = "non_existant_file.yml"
-      @poller.synchronization_data.should == default_data
-    end
-
-    after do
-      Localeapp.configuration.synchronization_data_file = @original_configuration_file
+      expect(@poller.needs_reloading?).to be false
     end
   end
 
@@ -51,12 +29,12 @@ describe Localeapp::Poller do
     let(:updated_at_time) { Time.at(1000010) }
 
     it "updates polled_at in the synchronization file" do
-      polled_at = lambda { @poller.synchronization_data[:polled_at] }
+      polled_at = lambda { @poller.sync_data.polled_at }
       expect { @poller.write_synchronization_data!(polled_at_time, updated_at_time) }.to change(polled_at, :call).to(polled_at_time.to_i)
     end
 
     it "updates updated_at in the synchronization file" do
-      updated_at = lambda { @poller.synchronization_data[:updated_at] }
+      updated_at = lambda { @poller.sync_data.updated_at }
       expect { @poller.write_synchronization_data!(polled_at_time, updated_at_time) }.to change(updated_at, :call).to(updated_at_time.to_i)
     end
   end
@@ -71,17 +49,17 @@ describe Localeapp::Poller do
       end
 
       it "returns false" do
-        @poller.poll!.should == false
+        expect(@poller.poll!).to eq(false)
       end
 
       it "updates the polled_at but not the updated_at synchronization data" do
-        @poller.stub(:current_time).and_return(polled_at_time)
-        @poller.should_receive(:write_synchronization_data!).with(polled_at_time, @updated_at)
+        allow(@poller).to receive(:current_time).and_return(polled_at_time)
+        expect(@poller).to receive(:write_synchronization_data!).with(polled_at_time, @updated_at)
         @poller.poll!
       end
 
       it "updates the synchronization data" do
-        @poller.should_receive(:write_synchronization_data!)
+        expect(@poller).to receive(:write_synchronization_data!)
         @poller.poll!
       end
     end
@@ -92,11 +70,11 @@ describe Localeapp::Poller do
       end
 
       it "returns false" do
-        @poller.poll!.should == false
+        expect(@poller.poll!).to eq(false)
       end
 
       it "doesn't update the synchronization data" do
-        @poller.should_not_receive(:write_synchronization_data!)
+        expect(@poller).not_to receive(:write_synchronization_data!)
         @poller.poll!
       end
     end
@@ -112,18 +90,18 @@ describe Localeapp::Poller do
       end
 
       it "returns true" do
-        @poller.poll!.should == true
+        expect(@poller.poll!).to eq(true)
       end
 
       it "updates the polled_at and the updated_at synchronization data" do
-        @poller.stub(:current_time).and_return(polled_at_time)
-        @poller.should_receive(:write_synchronization_data!).with(polled_at_time, updated_at_time)
+        allow(@poller).to receive(:current_time).and_return(polled_at_time)
+        expect(@poller).to receive(:write_synchronization_data!).with(polled_at_time, updated_at_time)
         @poller.poll!
       end
 
       it "passes the data through to the Updater" do
         FakeWeb.register_uri(:get, "https://api.localeapp.com/v1/projects/TEST_KEY/translations.yml?updated_at=#{@updated_at}", :body => @hash.to_yaml, :status => ['200', 'OK'], :date => Time.now.httpdate)
-        Localeapp.updater.should_receive(:update).with(@hash)
+        expect(Localeapp.updater).to receive(:update).with(@hash)
         @poller.poll!
       end
     end

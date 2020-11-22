@@ -1,11 +1,10 @@
-Feature: Pushing existing translation to localeapp
+Feature: `push' command
 
-  Scenario: Running push on a file
-    In order to send my translations
-    When I have a valid project on localeapp.com with api key "MYAPIKEY"
+  Scenario: Pushes translations in a specific locales file
+    Given I have a valid project on localeapp.com with api key "MYAPIKEY"
     And an initializer file
     And an empty file named "config/locales/en.yml"
-    When I run `localeapp push config/locales/en.yml`
+    When I successfully run `localeapp push config/locales/en.yml`
     Then the output should contain:
     """
     Localeapp Push
@@ -13,17 +12,15 @@ Feature: Pushing existing translation to localeapp
     Pushing file en.yml:
     Success!
 
-    config/locales/en.yml queued for processing.
+    config/locales/en.yml queued for processing. (id: 12345)
     """
-    And help should not be displayed
 
-  Scenario: Running push on a directory
-    In order to send my translations
-    When I have a valid project on localeapp.com with api key "MYAPIKEY"
+  Scenario: Pushes all locales within given directory
+    Given I have a valid project on localeapp.com with api key "MYAPIKEY"
     And an initializer file
     And an empty file named "config/locales/en.yml"
     And an empty file named "config/locales/es.yml"
-    When I run `localeapp push config/locales`
+    When I successfully run `localeapp push config/locales`
     Then the output should contain:
     """
     Localeapp Push
@@ -31,27 +28,17 @@ Feature: Pushing existing translation to localeapp
     Pushing file en.yml:
     Success!
 
-    config/locales/en.yml queued for processing.
+    config/locales/en.yml queued for processing. (id: 12345)
 
     Pushing file es.yml:
     Success!
 
-    config/locales/es.yml queued for processing.
+    config/locales/es.yml queued for processing. (id: 12345)
     """
-    And help should not be displayed
 
-  Scenario: Running push on a file with no initializer file, passing the key on the command line
-    In order to send my translations
-    When I have a valid project on localeapp.com with api key "MYAPIKEY"
+  Scenario: Reports an error when the given API key is incorrect
+    Given no project exist on localeapp.com with API key "MYAPIKEY"
     And an empty file named "config/locales/en.yml"
     When I run `localeapp -k MYAPIKEY push config/locales/en.yml`
-    Then the output should contain:
-    """
-    Localeapp Push
-
-    Pushing file en.yml:
-    Success!
-
-    config/locales/en.yml queued for processing.
-    """
-    And help should not be displayed
+    Then the exit status must be 70
+    And the output must match /error.+404/i
